@@ -1,5 +1,6 @@
 import streamlit as st
 import  datetime
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from app import doSQL as dS
 
