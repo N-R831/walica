@@ -86,7 +86,10 @@ elif choice == "詳細":
     year_now = today.year
     month_now = today.month
     min_day = dS.read_one_data("SELECT MIN(DATE) FROM master_dt")
-    year_min = datetime.datetime.strptime(min_day[0], '%Y-%m-%d').year
+    if not(min_day.empty):
+        year_min = datetime.datetime.strptime(min_day[0], '%Y-%m-%d').year
+    else:
+        year_min = year_now
     
     options = [years for years in range(int(year_min), int(year_now)+1) ]
     
