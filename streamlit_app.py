@@ -44,7 +44,10 @@ elif choice == "結果":
     year_now = today.year
     month_now = today.month
     min_day = dS.read_one_data("SELECT MIN(DATE) FROM master_dt")
-    year_min = datetime.datetime.strptime(min_day[0], '%Y-%m-%d').year
+    if len(min_day) == 0:
+        year_min = datetime.datetime.strptime(min_day[0], '%Y-%m-%d').year
+    else:
+        year_min = year_now
     options = [years for years in range(int(year_min), int(year_now)+1) ]
     if len(options) == 1:
         selected_year = st.text_input('年', year_now)
@@ -64,29 +67,33 @@ elif choice == "結果":
     df_member = dS.read(str_sql)
     str_sql = f"SELECT MEMBER, SUM(MONEY) FROM master_dt WHERE Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"
     df_ret = dS.read(str_sql)
-    for i in range(len(df_member)):
-        print(df_ret)
-        if not(df_ret.empty):
-            st.write(df_ret['member'][i], ":", df_ret['SUM(MONEY)'][i])
-        else:
-            st.write(df_member['member'][i], ":", 0)
-    str_sql = f"""SELECT SUM(MONEY) FROM master_dt WHERE MEMBER='花帆' AND
-        Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"""
-    kaho_money = dS.read_one_data(str_sql)
-    str_sql = f"""SELECT SUM(MONEY) FROM master_dt WHERE MEMBER='涼馬' AND
-        Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"""
-    ryoma_money = dS.read_one_data(str_sql)
-    if kaho_money[0] > ryoma_money[0]:
-        print(kaho_money[0])
-        st.title("涼馬が花帆に" + str(int((kaho_money[0] - ryoma_money[0])/2)) + "円支払う" )
-    elif ryoma_money > kaho_money:
-        st.title("花帆が涼馬に" + str(int((ryoma_money[0] - kaho_money[0])/2)) + "円支払う" )
+    if not(df_ret.empty):
+        for i in range(len(df_member)):
+            print(df_ret)
+            if not(df_ret.empty):
+                st.write(df_ret['member'][i], ":", df_ret['SUM(MONEY)'][i])
+            else:
+                st.write(df_member['member'][i], ":", 0)
+        str_sql = f"""SELECT SUM(MONEY) FROM master_dt WHERE MEMBER='花帆' AND
+            Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"""
+        kaho_money = dS.read(str_sql)
+        str_sql = f"""SELECT SUM(MONEY) FROM master_dt WHERE MEMBER='涼馬' AND
+            Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"""
+        ryoma_money = dS.read(str_sql)
+        if not(kaho_money.empty) and not(ryoma_money.empty):
+            if kaho_money[0] > ryoma_money[0]:
+                print(kaho_money[0])
+                st.title("涼馬が花帆に" + str(int((kaho_money[0] - ryoma_money[0])/2)) + "円支払う" )
+            elif ryoma_money > kaho_money:
+                st.title("花帆が涼馬に" + str(int((ryoma_money[0] - kaho_money[0])/2)) + "円支払う" )
+            else:
+                st.title("どちらも支払う必要はありません")
 elif choice == "詳細":
     today = datetime.date.today()
     year_now = today.year
     month_now = today.month
     min_day = dS.read_one_data("SELECT MIN(DATE) FROM master_dt")
-    if not(min_day.empty):
+    if len(min_day) == 0:
         year_min = datetime.datetime.strptime(min_day[0], '%Y-%m-%d').year
     else:
         year_min = year_now
