@@ -5,6 +5,7 @@ import datetime
 import sqlite3
 import pandas as pd
 from app import doSQL as dS
+from streamlit_gsheets import GSheetsConnection
 
 def get_month_range(year, month):
     """
@@ -22,7 +23,6 @@ def get_month_range(year, month):
     return first_day, last_day
 
 st.title('My Walica')
-print("start")
 # Sidebarの選択肢を定義する
 options = ["金額入力", "結果", "詳細", "バックアップ"]
 choice = st.sidebar.selectbox("メニュー", options)
@@ -39,12 +39,15 @@ if choice == "金額入力":
     mon = text_input = st.text_input('金額', '')
     if st.button('登録'):
         dS.submit(member, str(d), kind, mon)
+        st.cache_data.clear()
+        st.rerun()
 elif choice == "結果":
     today = datetime.date.today()
     year_now = today.year
     month_now = today.month
-    min_day = dS.read_one_data("SELECT MIN(DATE) FROM master_dt")
-    if len(min_day) == 0:
+    min_day = dS.read('SELECT MIN(DATE) FROM "walica"')
+    print(min_day['min(DATE)'][0])
+    if len(min_day['min(DATE)'][0]) == 0:
         year_min = datetime.datetime.strptime(min_day[0], '%Y-%m-%d').year
     else:
         year_min = year_now
@@ -63,36 +66,39 @@ elif choice == "結果":
         month_now-1
     )
     first_day, last_day = get_month_range(int(selected_year), int(selected_month))
-    str_sql = 'SELECT DISTINCT(MEMBER) FROM master_dt'
+    str_sql = 'SELECT DISTINCT(MEMBER) FROM "walica" WHERE MEMBER is NOT NULL'
     df_member = dS.read(str_sql)
-    str_sql = f"SELECT MEMBER, SUM(MONEY) FROM master_dt WHERE Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"
+    str_sql = f"""SELECT MEMBER, SUM(MONEY) FROM "walica" WHERE DATE BETWEEN '{first_day}' AND '{last_day}' GROUP BY MEMBER"""
+    print(str_sql)
     df_ret = dS.read(str_sql)
     if not(df_ret.empty):
         for i in range(len(df_member)):
-            print(df_ret)
+            print(df_member)
             if not(df_ret.empty):
-                st.write(df_ret['member'][i], ":", df_ret['SUM(MONEY)'][i])
+                st.write(df_ret['member'][i], ":", df_ret['sum(MONEY)'][i])
             else:
                 st.write(df_member['member'][i], ":", 0)
-        str_sql = f"""SELECT SUM(MONEY) FROM master_dt WHERE MEMBER='花帆' AND
-            Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"""
+        str_sql = f"""SELECT SUM(MONEY) FROM "walica" WHERE MEMBER='花帆' AND
+            DATE BETWEEN '{first_day}' AND '{last_day}' GROUP BY MEMBER"""
         kaho_money = dS.read(str_sql)
-        str_sql = f"""SELECT SUM(MONEY) FROM master_dt WHERE MEMBER='涼馬' AND
-            Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') GROUP BY MEMBER"""
+        str_sql = f"""SELECT SUM(MONEY) FROM "walica" WHERE MEMBER='涼馬' AND
+            DATE BETWEEN '{first_day}' AND '{last_day}' GROUP BY MEMBER"""
         ryoma_money = dS.read(str_sql)
+        print(kaho_money)
         if not(kaho_money.empty) and not(ryoma_money.empty):
-            if kaho_money[0] > ryoma_money[0]:
-                print(kaho_money[0])
-                st.title("涼馬が花帆に" + str(int((kaho_money[0] - ryoma_money[0])/2)) + "円支払う" )
-            elif ryoma_money > kaho_money:
-                st.title("花帆が涼馬に" + str(int((ryoma_money[0] - kaho_money[0])/2)) + "円支払う" )
+            if kaho_money['sum(MONEY)'][0] > ryoma_money['sum(MONEY)'][0]:
+                st.title("涼馬が花帆に" + str(int((kaho_money['sum(MONEY)'][0] - ryoma_money['sum(MONEY)'][0])/2)) + "円支払う" )
+            elif ryoma_money['sum(MONEY)'][0] > kaho_money['sum(MONEY)'][0]:
+                st.title("花帆が涼馬に" + str(int((ryoma_money['sum(MONEY)'][0] - kaho_money['sum(MONEY)'][0])/2)) + "円支払う" )
             else:
                 st.title("どちらも支払う必要はありません")
 elif choice == "詳細":
     today = datetime.date.today()
     year_now = today.year
     month_now = today.month
-    min_day = dS.read_one_data("SELECT MIN(DATE) FROM master_dt")
+    min_day_df = dS.read('SELECT MIN(DATE) FROM "walica"')
+    print(min_day_df)
+    min_day = min_day_df['min(DATE)'][0]
     if len(min_day) == 0:
         year_min = datetime.datetime.strptime(min_day[0], '%Y-%m-%d').year
     else:
@@ -116,27 +122,19 @@ elif choice == "詳細":
     )
     
     first_day, last_day = get_month_range(int(selected_year), int(selected_month))
-    str_sql = f"SELECT * FROM master_dt WHERE Date(DATE) BETWEEN DATE('{first_day}') AND DATE('{last_day}') "
-    print(str_sql)
+    str_sql = f"""SELECT * FROM "walica" WHERE DATE BETWEEN '{first_day}' AND '{last_day}'"""
+    print("ここ" + str_sql)
     df = dS.read(str_sql)
-    selected_row = st.dataframe(data=df,  
-                                key=None,
-                                on_select="rerun",
-                                selection_mode="single-row"
-                                )
-    row = selected_row.get('selection').get("rows")
-    if len(row)!=0:
-        print("ここ")
-        st.write(df['id'][row])
-        if st.button('削除'):
-            id_int = int(df['id'][row])
-            dS.delete_One_Data(id_int)
-            st.success("削除しました")
-            st.cache_data.clear()
-            st.rerun()
+    selected_row = st.dataframe(data=df)
+    text_id = st.text_input('id', '')
+    if st.button('削除'):
+        dS.delete_One_Data(text_id)
+        st.success("削除しました")
+        st.cache_data.clear()
+        st.rerun()
 
 elif choice == "バックアップ":
-    str_sql = f"SELECT * FROM master_dt"
+    str_sql = f'SELECT * FROM "walica"'
     df = dS.read(str_sql)
     st.dataframe(df)
 
