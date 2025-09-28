@@ -3,68 +3,67 @@ import sqlite3
 import datetime
 import pandas as pd
 import os
+from streamlit_gsheets import GSheetsConnection
 
 
 dbname = 'MASTER.db'
 
-# テーブルを作成する 
-conn = sqlite3.connect(dbname)
-conn.execute('''
-CREATE TABLE IF NOT EXISTS master_dt ( 
-    id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    date TEXT NOT NULL,
-    member TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    money INTEGER NOT NULL
-) 
-''')
+# データベース(GoogleSpreadSheet)に接続
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 def submit(member, date, kind, money):
     # db接続
-    conn = sqlite3.connect(dbname)
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    df = conn.query('SELECT id, date, member, kind, money, FROM "walica" WHERE date is NOT NULL ORDER BY id DESC')
+    print(df['id'].max())
+    max_id = df['id'].max()
+    df_append = pd.DataFrame({'id': [max_id+1], 'date': [date], 'member': [member], 'kind': [kind], 'money': [money], })
+    df_update = pd.concat([df, df_append])
+    df = conn.update(
+        worksheet="walica",
+        data=df_update,
+    )
     
-    conn.execute("INSERT INTO master_dt (date, member, kind, money) VALUES (?, ?, ?, ?)", (date, member, kind, money))
-    conn.commit()
-
-    conn.close()
 
 def read(str_sql):
     # db接続
-    conn = sqlite3.connect(dbname)
-    df = pd.read_sql_query(str_sql, conn)
-    conn.close()
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    df = conn.query(str_sql)
     return df
 
 def read_one_data(str_sql):
     # db接続
-    conn = sqlite3.connect(dbname)
-    # sqliteを操作するカーソルオブジェクトを作成
-    cur = conn.cursor()
+    conn = st.connection("gsheets", type=GSheetsConnection)
     print(str_sql)
-    cur.execute(str_sql)
-    ret = cur.fetchall()
-
-    cur.close()
-    conn.close()
+    df = conn.query(str_sql)
+    print(df)
+    ret = df[0][0]
     
-    return ret[0]
+    return ret
 
 def delete():
     # db接続
-    conn = sqlite3.connect(dbname)
+    conn = st.connection("gsheets", type=GSheetsConnection)
     
-    conn.execute("DELETE FROM master_dt")
+    conn.execute('DELETE FROM "walica"')
     conn.commit()
 
     conn.close()
 
 def delete_One_Data(id):
     # db接続
-    conn = sqlite3.connect(dbname)
-    str_sql=f"DELETE FROM master_dt WHERE id ={id}"
-    print(str_sql)
-    conn.execute(str_sql)
-    conn.commit()
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    df = conn.query('SELECT id, date, member, kind, money, FROM "walica" WHERE date is NOT NULL ORDER BY id ASC')
+    print("do")
+    for i in range(len(df['id'])):
+        if int(df['id'][i]) == int(id):
+            print(df)
+            df_ret = df.drop(i)
+            print(df)
+    df_ret = conn.update(
+                    worksheet="walica",
+                    data=df_ret,
+                )
+    
 
-    conn.close()
     
