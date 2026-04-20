@@ -6,7 +6,11 @@ from streamlit_gsheets import GSheetsConnection
  
 def _get_conn():
     """GSheetsConnectionを取得する"""
-    return st.connection("gsheets", type=GSheetsConnection)
+    return st.connection(
+        "gsheets",
+        type=GSheetsConnection,
+        spreadsheet="https://docs.google.com/spreadsheets/d/1FnLva6GbMA4xBs_JowC8Uq0A7aCSXtBnXVIEOLIlSmk"
+    )
  
  
 def _fetch_all():
